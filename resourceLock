@@ -1,0 +1,47 @@
+///////////////// GOOGLE APPS SCRIPT ONLY /////////////////
+
+///////////////// IMPROVISED RESOURCE LOCK SYSTEM - ALLOW ONLY ONE EDIT PER SHEET AT A TIME /////////////////
+///////////////// UNIQUE ID CAN BE ANYTHING - INDIVIDUAL SHEETS IN A SPREADSHEET CAN BE LOCKED /////////////////
+async function sheetLockWait(uniqueId,release){
+
+  if (release) {
+    scriptProperties.deleteProperty(uniqueId);
+    console.log('Sheet lock key: ',uniqueId,' - Released')
+    return true; // key removed when flagged - after successful run
+  };  
+
+  var now = new Date();
+  var lock = scriptProperties.getProperty(uniqueId);
+  var timeout = 6 * 60 * 1000;  // Six minutes in milliseconds
+
+  function checkForLock(lock) {
+    if (lock == null) {
+      scriptProperties.setProperty(uniqueId, new Date());
+      console.log('Sheet lock key: ',uniqueId,' - Not found, now added');
+      return true; // the key was not found so the script can continue, added to prevent future runs
+    };
+
+    if (now - lock > timeout) {
+      scriptProperties.deleteProperty(uniqueId)
+      console.log('Sheet lock key: ',uniqueId,' - Timeout, now removed')
+      return true; // out of date, remove and allow next run
+    };
+    console.log('Sheet lock key: ',uniqueId,' - Present, need to wait')
+    return false;
+  };
+
+  if (checkForLock(lock)) {return true};
+
+  var totalSleepTime = 0; // record how long this attempt has gone on for
+  var sleepTime = 1000; // how long in ms each wait cycle is, lower numbers use more cpu?
+
+  for (;totalSleepTime < timeout;) {
+    console.log('doing lock wait loop')
+    Utilities.sleep(sleepTime);
+    lock = scriptProperties.getProperty(uniqueId);
+    totalSleepTime += sleepTime;
+    console.log('totalSleepTime: ',totalSleepTime);
+    if (checkForLock(lock)) {return true};
+  };
+  return false;
+};
